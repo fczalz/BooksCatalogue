@@ -9,10 +9,16 @@ using Microsoft.AspNetCore.Mvc;
 namespace BooksCatalogue.Controllers
 {
     public class ReviewController : Controller
-    {
-        private string apiEndpoint = "https://bookscatalogueapi-dicoding.azurewebsites.net/api/";
+    {  
 
+       private string apiEndpoint = "https://bookscatalogueapi-dicoding.azurewebsites.net/api/";
+
+        private HttpClient _client;
+        HttpClientHandler clientHandler = new HttpClientHandler();
         public ReviewController() {
+
+            clientHandler.ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => { return true; };
+            _client = new HttpClient(clientHandler);
         }
 
         // GET: Review/AddReview/2
@@ -44,13 +50,31 @@ namespace BooksCatalogue.Controllers
         }
 
         // TODO: Tambahkan fungsi ini untuk mengirimkan atau POST data review menuju API
-        // POST: Review/AddReview
-        [HttpPost]
+        //POST: Review/AddReview
+        [HttpPost,ActionName("Review")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> AddReview([Bind("Id,BookId,ReviewerName,Rating,Comment")] Review review)
         {
+            MultipartFormDataContent content = new MultipartFormDataContent();
+            content.Add(new StringContent(review.ReviewerName), "reviewerName");
+            content.Add(new StringContent(review.Rating.ToString()), "rating");
+            content.Add(new StringContent(review.Comment), "comment");
 
-            return View(review);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, apiEndpoint);
+            request.Content = content;
+            HttpResponseMessage response = await _client.SendAsync(request);
+
+            switch (response.StatusCode)
+            {
+                case HttpStatusCode.OK:
+                case HttpStatusCode.NoContent:
+                case HttpStatusCode.Created:
+                    return View(review);
+                default:
+                    return ErrorAction("Error. Status code = " + response.StatusCode + "; " + response.ReasonPhrase);
+            }
+           
+    
         }
 
         private ActionResult ErrorAction(string message)
